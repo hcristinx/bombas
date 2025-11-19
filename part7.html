@@ -100,26 +100,28 @@
         });
 
         this.anims.create({
-    key: 'bomb_explode',
-    frames: this.anims.generateFrameNumbers('bomb', { start: 0, end: 10 }), // 11 frames: 0..10
-    frameRate: 16,
-    repeat: 0
-});
+        key: 'idle',
+        frames: this.anims.generateFrameNumbers('bomb', { start: 0, end: 0 }),
+        frameRate: 1,
+        });
+
+        this.anims.create({
+        key: 'explode',
+        frames: this.anims.generateFrameNumbers('bomb', { start: 1, end: 10 }), 
+        frameRate: 24,
+        repeat: 0
+        });
 
 
-    bombs = this.physics.add.group({
-    defaultKey: 'bomb',
-    bounceY: 0.2,
-    collideWorldBounds: true
-});
 
 
         cursors = this.input.keyboard.createCursorKeys();
 
         this.physics.add.collider(player, platforms);
         //     Agregar capas de colisión
+        this.physics.add.collider(player, bombs, touchPlayer);
         this.physics.add.collider(bombs, platforms, selfDestruct);
-        this.physics.add.collider(bombs, player, touchPlayer);
+
 
     }
 
@@ -143,20 +145,30 @@
         }
     }
 
+    
+    
     function createBomb() {
-        let x = Phaser.Math.Between(100, 700);
-        let y = -20;
-        bombs.create(x, y, 'bomb');
+    
+    let x = Phaser.Math.Between(100,700);
+    let y = -20;
+    var bomb = bombs.create (x, y, 'bomb');
+    bomb.anims.play('idle', true)
+}
 
-    }
 
     function selfDestruct(bomb, platform) {
-        //bomb.destroy();
+        bomb.body.enable = false;
+        bomb.anims.play('explode', true);
+        bomb.once('animationcomplete', function (animation, frame ) {
+            if (animation.key === 'explode') {
+                bomb.destroy();
+            }
+        }, this);
     }
 
-    function touchPlayer(bomb, player){
+    function touchPlayer(player, bomb){
         console.log("Player touched");
-        bomb.anims.play("bomb_explode",true);
+        selfDestruct(bomb, null)
     }
     
 
