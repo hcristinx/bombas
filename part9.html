@@ -1,0 +1,210 @@
+<!doctype html> 
+<html lang="es"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Making your first Phaser 3 Game - Part 9 (doble salto)</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css"> body { margin: 0; } </style>
+</head>
+<body>
+
+<script type="text/javascript">
+    var config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        physics: {
+            default: 'arcade',
+            arcade: { gravity: { y: 300 }, debug: false }
+        },
+        scene: { preload: preload, create: create, update: update }
+    };
+
+    var player;
+    var stars;
+    var platforms;
+    var cursors;
+    var score = 0;
+    var scoreText;
+    var HighscoreText;
+    var jumpCount = 0; 
+
+    var game = new Phaser.Game(config);
+
+    function preload () {
+        this.load.image('sky', 'assets/sky.png');
+        this.load.image('ground', 'assets/platform.png');
+        this.load.image('star', 'assets/star.png');
+        this.load.spritesheet('dude', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
+        this.load.spritesheet('bomb', 'assets/bomb_spritesheet.png', { frameWidth: 32, frameHeight: 32 });
+    }
+
+    function create () {
+        this.add.image(400, 300, 'sky');
+
+        platforms = this.physics.add.staticGroup();
+        platforms.create(400, 568, 'ground').setScale(2).refreshBody();
+        platforms.create(600, 400, 'ground');
+        platforms.create(50, 250, 'ground');
+        platforms.create(750, 220, 'ground');
+
+        player = this.physics.add.sprite(100, 450, 'dude');
+
+        player.setBounce(0.2);
+        player.setCollideWorldBounds(true);
+
+        this.anims.create({ key: 'left', frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
+        this.anims.create({ key: 'turn', frames: [ { key: 'dude', frame: 4 } ], frameRate: 20 });
+        this.anims.create({ key: 'right', frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }), frameRate: 10, repeat: -1 });
+       
+        this.anims.create({
+    key: 'idle',
+    frames: this.anims.generateFrameNumbers('bomb', { start: 0, end: 0 }),
+    frameRate: 1,
+    repeat: -1
+  });
+  this.anims.create({
+    key: 'explode',
+    frames: this.anims.generateFrameNumbers('bomb', { start: 1, end: 10 }),
+    frameRate: 24,
+    repeat: 0
+  });
+
+        cursors = this.input.keyboard.createCursorKeys();
+
+        stars = this.physics.add.group({
+            key: 'star',
+            repeat: 11,
+            setXY: { x: 12, y: 0, stepX: 70 }
+        });
+
+        bombs = this.physics.add.group();
+
+for (let i = 0; i < 4; i++) { // crea 4 bombas, por ejemplo
+  let x = 50 + i * 140;
+  let y = 0;
+  let nb = this.physics.add.sprite(x, y, 'bomb', 0);
+  nb.setBounce(Phaser.Math.FloatBetween(0.1, 0.6));
+  nb.setCollideWorldBounds(true);
+  nb.body.allowGravity = true;
+  nb.exploding = false;
+  nb.play('idle');
+  bombs.add(nb);
+}
+
+
+        stars.children.iterate(function (child) {
+            child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+        });
+
+        scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#000' });
+        HighscoreText = this.add.text(480, 16, 'Max Score: '+(localStorage.key("Max score:")? localStorage.getItem("score") : 0), { fontSize: '32px', fill: '#000' });
+                                                            //pregunta si hay valor en score, si es true, se ejecuta la siguiente parte, :=else, pon un 0
+       
+
+        this.physics.add.collider(player, platforms);
+        this.physics.add.collider(stars, platforms);
+        this.physics.add.overlap(player, stars, collectStar, null, this);
+       this.physics.add.collider(player, platforms);
+        //     Agregar capas de colisión
+        this.physics.add.collider(player, bombs, touchPlayer, null, this);
+        this.physics.add.overlap(player, bombs, touchPlayer, null, this);
+        this.physics.add.collider(bombs, platforms);
+
+       
+    }
+
+    function update () {
+        if (cursors.left.isDown) {
+            player.setVelocityX(-160);
+            player.anims.play('left', true);
+        } else if (cursors.right.isDown) {
+            player.setVelocityX(160);
+            player.anims.play('right', true);
+        } else {
+            player.setVelocityX(0);
+            player.anims.play('turn');
+        }
+
+        if (player.body && player.body.onFloor() && !(cursors.up.isDown)) {
+            jumpCount = 0;
+             console.log(jumpCount, "reset");
+        }
+
+      
+        if (Phaser.Input.Keyboard.JustDown(cursors.up)) {
+            if (jumpCount < 2) {
+                player.setVelocityY(-330); 
+                jumpCount++;
+                console.log(jumpCount);
+            }
+        }  
+    }
+
+    function createBomb() {
+    
+    let x = Phaser.Math.Between(100,700);
+    let y = -20;
+    var bomb = bombs.create (x, y, 'bomb');
+    bomb.anims.play('idle', true)
+}
+
+
+    function selfDestruct(bomb, platform) {
+        bomb.body.enable = false;
+        bomb.anims.play('explode', true);
+        bomb.once('animationcomplete', function (animation, frame ) {
+            if (animation.key === 'explode') {
+                bomb.destroy();
+            }
+        }, this);
+    }
+
+   function touchPlayer(player, bomb){
+    console.log("Player touched");
+ //profe, aqui tenia un problema donde la bomba si se tocaba pero la animacion no se reproducia, asi que chat me dijo que pusiera esto
+    if (!bomb || bomb.exploding) return;
+    bomb.exploding = true;
+ //este quita las físicas para que no interfiera en la animación
+    try {
+        if (bomb.body) {
+            bomb.setVelocity(0);
+            bomb.body.allowGravity = false;
+            bomb.body.checkCollision.none = true;
+            bomb.body.moves = false;
+        }
+    } catch(e){}
+ //reproduce la animacion y se asegura de que reinicie
+    try {
+        if (typeof bomb.play === 'function') {
+            bomb.play('explode');
+            bomb.once('animationcomplete', function() {
+                player.scene.scene.restart();
+            });
+        } else { //respaldo para que reinicie sí o sí
+            player.scene.scene.restart();
+        }
+    } catch(e) {
+        console.error('Error al reproducir explosión:', e);
+        player.scene.scene.restart();
+    }
+}
+
+
+
+
+    function collectStar (player, star) {
+        star.disableBody(true, true);
+
+        score += 10;
+        scoreText.setText('Score: ' + score);
+
+        if (score > Number(localStorage.getItem("score"))) {
+            localStorage.setItem('score', score);
+            HighscoreText.setText('Max Score: ' + score);
+        }
+    }
+</script>
+
+</body>
+</html>
