@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Phaser - Bombas idle / exploding</title>
+  <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+  <style> body { margin: 0; } </style>
+</head>
+<body>
+<script>
+var config = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
+  scene: { preload: preload, create: create, update: update }
+};
+
+var player, platforms, bombs, cursors;
+var game = new Phaser.Game(config);
+
+function preload() {
+  this.load.image('sky', 'assets/sky.png');
+  this.load.image('ground', 'assets/platform.png');
+  this.load.spritesheet('dude', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
+  // spritesheet de 11 frames (32x32 cada uno)
+  this.load.spritesheet('bomb', 'assets/bomb_spritesheet.png', { frameWidth: 32, frameHeight: 32 });
+}
+
+function create() {
+  this.add.image(400, 300, 'sky');
+
+  // plataformas
+  platforms = this.physics.add.staticGroup();
+  platforms.create(400, 568, 'ground').setScale(2).refreshBody();
+
+  // Animaciones: idle (frame 0) y bomb_explode (frames 1..10)
+  this.anims.create({
+    key: 'idle',
+    frames: this.anims.generateFrameNumbers('bomb', { start: 0, end: 0 }),
+    frameRate: 1, // un solo frame, no importa mucho
+    repeat: -1
+  });
+
+  this.anims.create({
+    key: 'bomb_explode',
+    frames: this.anims.generateFrameNumbers('bomb', { start: 1, end: 10 }),
+    frameRate: 16, // sugerido: 10-16 para que se vea
+    repeat: 0
+  });
+
+  // Grupo vacío; añadimos Sprites para asegurar .play()
+  bombs = this.physics.add.group();
+
+  // Generar bombas cada 500ms
+  this.time.addEvent({ delay: 500, callback: createBomb, callbackScope: this, loop: true });
+
+  // jugador
+  player = this.physics.add.sprite(100, 450, 'dude');
+  player.setBounce(0.2);
+  player.setCollideWorldBounds(true);
+
+  // animaciones jugador
+  this.anims.create({ key: 'left', frames: this.anims.generateFrameNumbers('dude',{start:0,end:3}), frameRate:10, repeat:-1 });
+  this.anims.create({ key: 'turn', frames: [{key:'dude',frame:4}], frameRate:20 });
+  this.anims.create({ key: 'right', frames: this.anims.generateFrameNumbers('dude',{start:5,end:8}), frameRate:10, repeat:-1 });
+
+  cursors = this.input.keyboard.createCursorKeys();
+
+  // colisiones
+  this.physics.add.collider(player, platforms);
+  // bombas <-> plataformas: la bomba se queda en idle (no explota)
+  this.physics.add.collider(bombs, platforms, onBombHitPlatform, null, this);
+  // player <-> bombas: explotar
+  this.physics.add.collider(player, bombs, onBombHitPlayer, null, this);
+}
+
+function update() {
+  if (cursors.left.isDown) {
+    player.setVelocityX(-160);
+    player.anims.play('left', true);
+  } else if (cursors.right.isDown) {
+    player.setVelocityX(160);
+    player.anims.play('right', true);
+  } else {
+    player.setVelocityX(0);
+    player.anims.play('turn');
+  }
+
+  if (cursors.up.isDown && player.body.touching.down) {
+    player.setVelocityY(-330);
+  }
+}
+
+// CREA bomba como SPRITE y la pone en estado idle
+function createBomb() {
+  var x = Phaser.Math.Between(16, 800 - 16);
+  var y = -32;
+  var b = this.physics.add.sprite(x, y, 'bomb', 0);
+  bombs.add(b);
+  b.setBounce(Phaser.Math.FloatBetween(0.1, 0.6));
+  b.setCollideWorldBounds(true);
+  b.body.allowGravity = true;
+  b.setOrigin(0.5, 0.5);
+  b.exploding = false;       // flag para evitar triggers dobles
+  b.onPlatform = false;      // flag: si ya tocó plataforma y quedó ahí
+  b.play('idle');            // reproducir la animación idle por defecto
+  return b;
+}
+
+// Cuando la bomba toca una plataforma: dejarla quieta en IDLE (no explota)
+function onBombHitPlatform(bomb, platform) {
+  if (!bomb || bomb.exploding) return;
+
+  // Si quieres que se quede en la plataforma y espere al player:
+  bomb.onPlatform = true;
+
+  // detener movimiento y física para que quede en la plataforma
+  bomb.setVelocity(0);
+  bomb.body.allowGravity = false;
+  bomb.body.immovable = true;
+  bomb.body.enable = true; // mantener body activado para detectar colisión con player
+  
+  // asegurar que esté en animación idle
+  if (bomb.anims && bomb.anims.currentAnim == null) {
+    bomb.play('idle');
+  }
+}
+
+// Cuando la bomba toca al player: reproducir exploding sin importar si estaba en plataforma o en caída
+function onBombHitPlayer(playerObj, bomb) {
+  // parámetros vienen (player, bomb)
+  if (!bomb || bomb.exploding) return;
+  bomb.exploding = true;
+
+  // detener movimiento y desactivar gravedad para mantener posición durante explosión
+  bomb.setVelocity(0);
+  bomb.body.allowGravity = false;
+  bomb.body.enable = false;
+  bomb.body.immovable = true;
+
+  // reproducir animación de explosión
+  bomb.play('bomb_explode');
+
+  // destruir cuando termine la animación
+  bomb.once('animationcomplete', function(anim, frame) {
+    bomb.destroy();
+    // aquí podrías afectar al jugador: restar vida, tint, knockback, etc.
+    // playerObj.setTint(0xff0000);
+  });
+}
+</script>
+</body>
+</html>

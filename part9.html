@@ -80,10 +80,16 @@
 
         bombs = this.physics.add.group();
 
+<<<<<<< HEAD
 for (let i = 0; i < 4; i++) { 
   let x = Phaser.Math.Between(50, 750); // randomizar bombitas chiquitibumbombitas
   let y = 0;                            
   
+=======
+for (let i = 0; i < 4; i++) { // crea 4 bombas, por ejemplo
+  let x = 50 + i * 140;
+  let y = 0;
+>>>>>>> b1dbe479a36bad9c9c7dccb54c3a3cf8c597dc28
   let nb = this.physics.add.sprite(x, y, 'bomb', 0);
   nb.setBounce(Phaser.Math.FloatBetween(0.1, 0.6));
   nb.setCollideWorldBounds(true);
@@ -98,8 +104,11 @@ for (let i = 0; i < 4; i++) {
             child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
         });
 
+<<<<<<< HEAD
         score = 0;
 
+=======
+>>>>>>> b1dbe479a36bad9c9c7dccb54c3a3cf8c597dc28
         scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '32px', fill: '#000' });
         HighscoreText = this.add.text(480, 16, 'Max Score: '+(localStorage.key("Max score:")? localStorage.getItem("score") : 0), { fontSize: '32px', fill: '#000' });
                                                             //pregunta si hay valor en score, si es true, se ejecuta la siguiente parte, :=else, pon un 0
@@ -208,7 +217,6 @@ for (let i = 0; i < 4; i++) {
         }
     }
 </script>
-
 
 </body>
 </html>
